@@ -1,0 +1,5 @@
+# Ignore the cache directory
+cache/
+
+# Ignore the graphEnv directory
+graphEnv/
