@@ -279,5 +279,5 @@ class TrafficSimulation:
         print("Simulation stopped.")
 
 if __name__ == "__main__":
-    sim = TrafficSimulation(place="Vake, Tbilisi, Georgia", num_cars=100, speed=30.0)
+    sim = TrafficSimulation(place="Vake, Tbilisi, Georgia", num_cars=50, speed=30.0)
     sim.run()
