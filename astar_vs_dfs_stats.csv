@@ -1,0 +1,2 @@
+iterations,dfs_total_distance,dfs_avg_distance_per_round,astar_total_distance,astar_avg_distance_per_round,dfs_total_time_seconds,dfs_avg_time_per_round_seconds,astar_total_time_seconds,astar_avg_time_per_round_seconds
+1000000,36132224444.2635,36132.2244442635,10898584632.64188,10898.58463264188,1562.8753738524492,0.0015628753738524492,6328.95349975448,0.00632895349975448
