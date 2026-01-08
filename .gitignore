@@ -1,5 +1,17 @@
-# Ignore the cache directory
-cache/
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
 
-# Ignore the graphEnv directory
-graphEnv/
+# Virtual environments
+.venv/
+venv/
+
+# OS / editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Generated data / outputs
+*.csv
+
