@@ -1,0 +1,134 @@
+Comparing A* and Depth-First Search for Route Planning on a Real Road Network
+
+1. Project Overview
+
+This project studies how two classical graph search algorithms—Depth-First Search (DFS) and A* (A-star)—behave when they are used for route planning on a real urban road network.
+
+The code builds on a traffic simulation setup that uses OpenStreetMap data (via OSMnx) to construct a directed road graph for the Vake district in Tbilisi, Georgia. Each node in the graph represents a road intersection or point along a road, and each directed edge represents a road segment with an associated length in meters. Positions for each node are stored so that geographic distance can be used as a heuristic for A*.
+
+The main goal of the project is to compare:
+- The quality of the routes produced by DFS versus A* (measured by total path length in meters).
+- The computational cost of each algorithm (measured by CPU time per route).
+
+The experiment is deliberately large-scale: the script `main_astar_vs_dfs.py` runs one million (1,000,000) random round-trip routes (start → goal → start) on this city graph and records aggregated statistics into `astar_vs_dfs_stats.csv`.
+
+
+2. Algorithms and Implementation
+
+2.1 Depth-First Search (DFS)
+
+The DFS implementation in `astar_vs_dfs.py` (`dfs_path_with_counts`) performs a standard depth-first traversal on the directed graph:
+- It uses an explicit stack to avoid recursion limits.
+- It keeps track of visited nodes to prevent infinite loops.
+- It stops as soon as it finds any path from start to goal (not necessarily the shortest).
+- It can optionally stop early after a maximum number of node expansions (not used in the main experiment, where `max_dfs_expansions=None`).
+
+DFS completely ignores edge lengths and geographic information. It only cares about graph connectivity. Because of this, DFS often finds paths that are technically valid but very long and circuitous in terms of physical distance.
+
+2.2 A* Search
+
+The A* implementation (`astar_path_with_counts`) is a standard shortest-path search on a weighted directed graph:
+- The cost g(n) is the cumulative edge length from the start node to node n.
+- The heuristic h(n) is the straight-line (Euclidean) distance between n and the goal, computed from the stored node positions.
+- The priority f(n) = g(n) + h(n) is used in a min-heap (priority queue) to decide which node to expand next.
+
+Each edge in the road network has a "length" attribute (in meters), and A* explicitly minimizes the sum of these lengths. The Euclidean heuristic is admissible in this context (straight-line distance never overestimates true path length), so A* tends to find near-optimal or optimal routes in terms of distance.
+
+2.3 Shared Components and Graph Setup
+
+Both algorithms operate on the same underlying graph:
+- The `AstarVsDFS` class in `astar_vs_dfs.py` uses `TrafficSimulation` from `graph_v5.py` to load the road network for "Vake, Tbilisi, Georgia".
+- Node positions (longitude/latitude-like coordinates) are cached and reused for both visualization and heuristic computation.
+
+Random start/goal pairs are chosen by `pick_far_nodes`, which:
+- Samples pairs of nodes at random.
+- Requires that both directions (start→goal and goal→start) are reachable.
+- Preferentially selects pairs whose shortest-path distance is at least a minimum threshold (default 1000 m).
+
+In the experiment, each trial is a round trip:
+- DFS is run from start to goal and then from goal back to start.
+- A* is run from start to goal and then from goal back to start.
+- The total round-trip distance is computed for each algorithm.
+
+
+3. Experimental Procedure
+
+The file `main_astar_vs_dfs.py` runs the large-scale experiment via the function `run_experiments`:
+
+- Number of iterations: 1,000,000 round-trip routes.
+- Region: Vake, Tbilisi, Georgia.
+- Minimum pair length: 1000 m (start and goal must be at least about 1 km apart in both directions).
+- DFS settings: standard DFS, no explicit limit on node expansions.
+- A* settings: standard A* with Euclidean distance heuristic on edge lengths.
+
+To make the experiment tractable, the script:
+- Uses `multiprocessing.Pool` to distribute work across CPU cores.
+- Splits the total number of iterations into smaller chunks.
+- For each chunk, repeatedly:
+  - Picks a new random start/goal pair.
+  - Runs DFS and A* for a round trip.
+  - Accumulates total distance and total runtime for each algorithm.
+
+At the end, the script computes:
+- Total DFS distance and total A* distance over all iterations.
+- Average DFS distance per round and average A* distance per round.
+- Total DFS time and total A* time.
+- Average time per round for each algorithm.
+
+These statistics are written to `astar_vs_dfs_stats.csv`.
+
+
+4. Results from One Million Iterations
+
+For the run with one million iterations, the CSV file `astar_vs_dfs_stats.csv` contains the following key values:
+
+- Iterations: 1,000,000
+- DFS total distance: 36,132,224,444.26 m
+- DFS average distance per round: 36,132.22 m
+- A* total distance: 10,898,584,632.64 m
+- A* average distance per round: 10,898.58 m
+- DFS total time: 1,562.88 s
+- DFS average time per round: 0.00156 s
+- A* total time: 6,328.95 s
+- A* average time per round: 0.00633 s
+
+Interpreting these numbers:
+
+- Path length:
+  - The average DFS round-trip route is approximately 36,132 m, which is about 36.1 km.
+  - The average A* round-trip route is approximately 10,899 m, which is about 10.9 km.
+  - A* therefore produces routes that are roughly 3.3 times shorter than DFS on average.
+
+- Runtime:
+  - DFS takes about 0.00156 seconds per round trip on average.
+  - A* takes about 0.00633 seconds per round trip on average.
+  - A* is roughly 4 times slower than DFS in terms of raw computation time per route.
+
+In other words, DFS is faster to run but produces extremely inefficient routes, while A* is slower but produces much more realistic and distance-efficient routes.
+
+
+5. Discussion
+
+The experiment highlights a fundamental trade-off between naive search and informed search on large, weighted graphs:
+
+- DFS:
+  - Advantages: Simple to implement and fast per run, because it does not maintain a priority queue and does not compute heuristics.
+  - Disadvantages: Ignores edge weights and spatial information, so the first path found is often far from optimal. Over a real road network, this leads to routes that are unreasonably long and impractical for navigation.
+
+- A*:
+  - Advantages: Incorporates both actual traveled distance (via edge weights) and an admissible heuristic (straight-line distance), so it systematically searches for near-shortest paths. The experiment shows that its routes are about three times shorter than DFS routes on average.
+  - Disadvantages: Each search is more computationally expensive, due to maintaining a priority queue and computing heuristics for many nodes. On one million trials, the total runtime is about four times larger than DFS.
+
+For real-world route planning (e.g., GPS navigation or traffic simulation where path realism matters), A* is clearly the better choice: the reduction in travel distance is substantial and easily justifies the extra computation, especially when the algorithm is only run a small number of times per user or vehicle. DFS is useful mainly as a pedagogical baseline to show how a naive search strategy can succeed in finding a path but fail badly in terms of quality.
+
+The large number of iterations (1,000,000) gives statistical robustness: the difference in average distances and times is not due to a handful of outliers, but reflects a consistent pattern across many randomly chosen origin–destination pairs in the city.
+
+
+6. Conclusion
+
+This project demonstrates, on a realistic urban road network, that:
+- Depth-First Search is very fast but produces routes that are roughly three times longer than necessary on average.
+- A* Search, using a simple Euclidean distance heuristic, finds much shorter and more reasonable routes, at the cost of being several times slower in computation.
+
+In the context of traffic simulation and navigation on real maps, A* is the appropriate algorithm when route quality is important. DFS remains valuable as a comparison point and as an example of how algorithm choice dramatically affects both performance and outcome in graph-based pathfinding.
+
